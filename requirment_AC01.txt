@@ -1,0 +1,22 @@
+# 14_Agent - Python 의존성 및 실행 환경 안내
+# 설치: python -m pip install -r requirment_AC01.txt
+# 코드/노트북과 기존 설정을 기준으로 작성. 설치 및 실행 검증 전이며 버전은 별도 검증 필요.
+
+python-dotenv
+langchain
+langchain-chroma
+langchain-community
+langchain-core
+langchain-openai
+langchain-tavily
+langchain-text-splitters
+langgraph
+pandas
+pydantic
+requests
+tavily-python
+pypdf
+rank-bm25
+
+# 노트북/대화형 실행 지원
+ipykernel
