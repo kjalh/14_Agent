@@ -21,7 +21,7 @@ def summarize(text: str) -> str:
     except(requests.RequestException, ValueError, KeyError) as e:
         return f'서버 통신 오류: {e}'
 
-def make_graph():
+# def make_graph()
 
 # 내 코드
 # with gr.Blocks() as demo:
@@ -38,27 +38,27 @@ def make_graph():
 
 # demo.launch()
 
-    with gr.Blocks(title="Gradio Tabs 예제") as demo:
-        gr.Markdown('# Gradio + FastAPI 예제\nFastAPI 서버와 통신하는 Gradio UI입니다.')
+with gr.Blocks(title="Gradio Tabs 예제") as demo:
+    gr.Markdown('# Gradio + FastAPI 예제\nFastAPI 서버와 통신하는 Gradio UI입니다.')
 
-        with gr.Tab("1. 회의 생성"):
-            title = gr.Textbox(label="제목", value="주간 회의")
-            people = gr.Textbox(label="참가자(쉼표)", value="김사과, 이메론")
-            btn1 = gr.Button("생성", variant="primary")
-            out1 = gr.Markdown()
-            btn1.click(make_meeting, inputs=[title, people], outputs=out1)
+    with gr.Tab("1. 회의 생성"):
+        title = gr.Textbox(label="제목", value="주간 회의")
+        people = gr.Textbox(label="참가자(쉼표)", value="김사과, 이메론")
+        btn1 = gr.Button("생성", variant="primary")
+        out1 = gr.Markdown()
+        btn1.click(make_meeting, inputs=[title, people], outputs=out1)
 
-        with gr.Tab("2. 간단 요약"):
-            raw = gr.Textbox(label="회의록", lines=6, value="김사과: 목표공유\n이메론: API 완료 예정")
-            btn2 = gr.Button('요약')
-            out2 = gr.Markdown()
-            btn2.click(summarize, inputs=raw, outputs=out2)
+    with gr.Tab("2. 간단 요약"):
+        raw = gr.Textbox(label="회의록", lines=6, value="김사과: 목표공유\n이메론: API 완료 예정")
+        btn2 = gr.Button('요약')
+        out2 = gr.Markdown()
+        btn2.click(summarize, inputs=raw, outputs=out2)
 
-        with gr.Tab("3. 전체 파이프라인"):
-            graph = gr.Textbox(label="전체 파이프라인", lines=10)
-            btn3 = gr.Button("생성")
-            out3 = gr.Image()
-            btn3.click()
+    with gr.Tab("3. 전체 파이프라인"):
+        graph = gr.Textbox(label="전체 파이프라인", lines=10)
+        btn3 = gr.Button("생성")
+        out3 = gr.Image()
+        btn3.click()
 
 # 모듈과 관련된 내용
 if __name__== "__main__": 
