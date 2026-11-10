@@ -21,7 +21,8 @@ def summarize(text: str) -> str:
     except(requests.RequestException, ValueError, KeyError) as e:
         return f'서버 통신 오류: {e}'
 
-# def make_graph()
+def make_graph():
+    pass
 
 # 내 코드
 # with gr.Blocks() as demo:
@@ -54,6 +55,7 @@ with gr.Blocks(title="Gradio Tabs 예제") as demo:
         out2 = gr.Markdown()
         btn2.click(summarize, inputs=raw, outputs=out2)
 
+# 실습 
     with gr.Tab("3. 전체 파이프라인"):
         graph = gr.Textbox(label="전체 파이프라인", lines=10)
         btn3 = gr.Button("생성")
