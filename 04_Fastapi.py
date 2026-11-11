@@ -6,7 +6,7 @@
 # uvicorn 4_Fastapi:app --reload --port 8000
 # post/pipeline 탭3 데이터를 받음 > 4_graph.py로 보내기
 
-from fastapi import FastAPI
+from fastapi import FastAPI  # pip install fastapi
 from pydantic import BaseModel
 
 app = FastAPI(title="회의 관리 API")
