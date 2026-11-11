@@ -59,5 +59,6 @@ with gr.Blocks(title="Gradio Tabs 예제") as demo:
         out5 = gr.Markdown()
         # btn5.click(show_meeting_detail, inputs=mid, outputs=out5)
 
+
 if __name__ == "__main__":
     demo.launch(server_name="127.0.0.1", server_port=9999)

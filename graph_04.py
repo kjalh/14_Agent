@@ -9,7 +9,7 @@
 
 from typing import TypedDict
 from langgraph.graph import END, START, StateGraph
-
+from db import save_meeting
 class MeetingState(TypedDict):
     title: str
     people: str
@@ -66,6 +66,21 @@ def compose_result(state: MeetingState) -> MeetingState:
 def route_after_validate(state: MeetingState) -> str:
     return "error" if state.get("error") else "ok"
 
+def route_after_compose(state: MeetingState) -> str:
+    return "error" if state.get("error") else "save"
+
+def save_to_db(state: MeetingState) -> MeetingState:
+    meeting_id = save_meeting(
+        title = state["title"].strip(),
+        people = (state.get("people") or "").strip(),
+        notes = state["notes"],
+        summary = state["summary"],
+        actions = state["actions"],
+        result = state["result"]
+    )
+    result = state["result"] + f"\n\nDB 저장됨 - meetings.id = {meeting_id}"
+    return {**state, "meeting_id": meeting_id, "result": result}
+
 def build_meeting_graph():
     graph = StateGraph(MeetingState)
     graph.add_node("validate", validate_input)
@@ -73,6 +88,7 @@ def build_meeting_graph():
     graph.add_node("summarize", summarize_notes)
     graph.add_node("extract_actions", extract_actions)
     graph.add_node("compose", compose_result)
+    graph.add_node("save_to_db", save_to_db)
 
     graph.add_edge(START, "validate")
     graph.add_conditional_edges(
@@ -81,6 +97,9 @@ def build_meeting_graph():
     graph.add_edge("create_meeting", "summarize")
     graph.add_edge("summarize", "extract_actions")
     graph.add_edge("extract_actions", "compose")
+    graph.add_conditional_edges(
+        "compose", route_after_compose, {"save": "save_to_db", "error": END}
+    )
     graph.add_edge("compose", END)
     return graph.compile()
 

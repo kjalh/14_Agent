@@ -6,11 +6,20 @@
 # uvicorn 4_Fastapi:app --reload --port 8000
 # post/pipeline 탭3 데이터를 받음 > 4_graph.py로 보내기
 
+
+from contextlib import asynccontextmanager  # fastapi에서 데코레이터 달라고 하는 거임
 from fastapi import FastAPI  # pip install fastapi
 from pydantic import BaseModel
 from graph_04 import run_meeting_pipeline # 숫자가 먼저 오면 안되니깐 04를 뒤로 올림
+from db import init_db
 
-app = FastAPI(title="회의 관리 API")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title="회의 관리 API", lifespan=lifespan)
 
 class MeetingRequest(BaseModel):
     title: str
