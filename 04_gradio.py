@@ -1,15 +1,28 @@
 # Gradio UI 만들기
 # 탭 3: 전체 파이프라인(탭1과 탭2를 전체 다 넣어줌
-import gradio as gr
-import requests
+import gradio as gr   # pip install gradio
+import requests   # pip install requests
 
 API_URL = "http://127.0.0.1:8000"
 
-def call_api(path: str, payload: dict) -> str:
+def call_api(path: str, payload: dict | None = None, method: str = "POST") -> str:
     try:
-        response = requests.post(f"{API_URL}{path}", json=payload, timeout=10)
+        url = f"{API_URL}{path}"
+        if method == "GET":
+            response = requests.get(url, timeout=10)
+        else:
+            response = requests.post(url, json=payload or {}, timeout=10)
         response.raise_for_status()
-        return response.json()["result"]
+        data = response.json()
+        if "markdown" in data:
+            return data["markdown"]
+        if "result" in data:
+            text = data["result"]
+            meeting_id = data.get("meeting_id") or 0
+            if meeting_id:
+                text += f"\n\n_(응답 meeting_id={meeting_id})_"
+            return text
+        return str(data)
     except(requests.RequestException, ValueError, KeyError) as e:
         return f"서버 통신 오류: {e}"
 
@@ -22,6 +35,18 @@ def summarize(text: str) -> str:
 def run_pipeline(title: str, people: str, notes: str) -> str:
     return call_api("/pipeline", {"title": title, "people": people, "notes": notes})
 
+def show_meetings() -> str:
+    return call_api("/meetings", method="GET")
+
+def show_meeting_detail(meeting_id: float | int) -> str:
+    try:
+        mid = int(meeting_id)
+    except(TypeError, ValueError):
+        return "조회할 회의 id를 숫자로 입력하세요."
+
+    if mid <= 0:
+        return "1 이상의 회의 id를 입력하세요."
+    return call_api(f"/meetings/{mid}", method="GET")
 
 with gr.Blocks(title="Gradio Tabs 예제") as demo:
     gr.Markdown("# Gradio + FastAPI 예제\nFastAPI 서버와 통신하는 Gradio UI입니다.")
@@ -52,12 +77,12 @@ with gr.Blocks(title="Gradio Tabs 예제") as demo:
         gr.Markdown("저장된 결과를 조회합니다.")
         btn4 = gr.Button("목록 새로고침")
         out4 = gr.Markdown()
-        # btn4.click(show_meetings, outputs=out4)
+        btn4.click(show_meetings, outputs=out4)
 
         mid = gr.Number(label="회의 id", value=1, precision=0)
         btn5 = gr.Button("상세 조회")
         out5 = gr.Markdown()
-        # btn5.click(show_meeting_detail, inputs=mid, outputs=out5)
+        btn5.click(show_meeting_detail, inputs=mid, outputs=out5)
 
 
 if __name__ == "__main__":
