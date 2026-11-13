@@ -65,6 +65,9 @@ def _save_upload(file: UploadFile) -> Path:
         shutil.copyfileobj(file.file, out)
     return dest
 
+def transcribe_audio(flie: UploadFile) -> str:
+    pass
+
 
 @app.post("/meeting")
 def create_meeting(request: MeetingRequest):
