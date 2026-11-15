@@ -14,15 +14,15 @@ def init_db() -> None:
     with get_connection() as conn:
         conn.execute(
             """
-            create table if not exists meetings (
-                id  primary key autoincrement,
-                title varchar(1000) not null,
-                people varchar(1000) not null,
-                notes text not null,
-                summary text not null,
-                actions text not null,
-                result text not null,
-                created_at varchar(100) not null
+            CREATE TABLE IF NOT EXISTS meetings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title VARCHAR(1000) NOT NULL,
+                people VARCHAR(1000) NOT NULL,
+                notes TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                actions TEXT NOT NULL,
+                result TEXT NOT NULL,
+                created_at VARCHAR(100) NOT NULL
             )
             """
         )
@@ -33,7 +33,7 @@ def save_meeting(title: str, people: str, notes: str, summary: str, actions: str
     with get_connection() as conn:
         cursor = conn.execute(
             """
-            insert into meetings (title, people, notes, summary, actions, result, created_at) values
+            INSERT INTO meetings (title, people, notes, summary, actions, result, created_at) VALUES
             (?, ?, ?, ?, ?, ?, ?)
             """, (title, people, notes, summary, actions, result, created_at)
         )
@@ -69,6 +69,6 @@ def format_meetings_markdown(rows: list[dict[str, Any]]) -> str:
 def get_meeting(meeting_id: int) -> list[dict[str, Any]] | None:
     with get_connection() as conn:
         row = conn.execute(
-            "select * from meetings where id = ?", (meeting_id,)
+            "SELECT * FROM meetings WHERE id = ?", (meeting_id,)
         ).fetchone()
     return [dict(row)] if row else None
