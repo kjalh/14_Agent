@@ -67,7 +67,7 @@ def _save_upload(file: UploadFile) -> Path:
         shutil.copyfileobj(file.file, out)
     return dest
 
-def transcribe_audio(flie: UploadFile) -> str:
+def transcribe_audio(file: UploadFile) -> str:
     pass
 
 
