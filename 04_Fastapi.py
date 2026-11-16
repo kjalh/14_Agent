@@ -3,8 +3,12 @@
 # 버튼을 누르면 이 두개의 값을 fastapi에서 받아와 json 형식으로 출력
 # 서버 만들기
 # pip install fastapi uvicorn
-# uvicorn 4_Fastapi:app --reload --port 8000
+# uvicorn 04_Fastapi:app --reload --port 8000
 # post/pipeline 탭3 데이터를 받음 > graph_04.py로 보내기
+
+# 이 경로에 임시 폴더가 생성되는데 오류나면 임시 폴더 삭제하고 다시 진행
+# C:\Users\Administrator\AppData\Local\Temp\gradio 
+
 
 import uuid
 import shutil # 파일을 다루는 메서드
@@ -14,7 +18,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form # pip install
 from pydantic import BaseModel
 from graph_04 import run_meeting_pipeline # 숫자가 먼저 오면 안되니깐 04를 뒤로 올림
 from db import (init_db, list_meetings, format_meetings_markdown, get_meeting)
-from asr import asr_status
+from asr import asr_status, transcribe_file # 11.16
 
 UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -67,9 +71,6 @@ def _save_upload(file: UploadFile) -> Path:
         shutil.copyfileobj(file.file, out)
     return dest
 
-def transcribe_audio(file: UploadFile) -> str:
-    pass
-
 
 @app.post("/meeting")
 def create_meeting(request: MeetingRequest):
@@ -111,20 +112,70 @@ def meetings_detail(meeting_id: int):
 def get_asr_status():
     return asr_status()
 
+
+
 # 전사
 @app.post("/transcribe")
-async def transcribe_only(file: UploadFile = File(...)):
+async def transcribe_only(file: UploadFile = File(...)):   # 11.16
     path = _save_upload(file)
-    # 
+    try:
+        tr = transcribe_file(path) # import 해서 사용 <- asr 파일에 추가
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
-    # 
+    return {
+        "text": tr.text,
+        "mode": tr.mode,
+        "rms": tr.rms,
+        "peak": tr.peak,
+        "skipped_silence": tr.skipped_silence,
+        "detail": tr.detail,
+        "result": (
+            f"### 전사 결과\n\n"
+            f"- 모드: `{tr.mode}`\n"
+            f"- RMS: `{tr.rms:.4f}` / peak: `{tr.peak:.4f}`\n"
+            f"- {tr.detail}\n\n"
+            f"```\n{tr.text or '(빈 결과)'}\n```"
+        ),
+        "markdown": (
+            f"### 전사 결과\n\n"
+            f"- 모드: `{tr.mode}`\n"
+            f"- RMS: `{tr.rms:.4f}` / peak: `{tr.peak:.4f}`\n"
+            f"- {tr.detail}\n\n"
+            f"```\n{tr.text or '(빈 결과)'}\n```"
+        ),
+    }
+
 
 # DB 저장 및 랭그래프 통과시키기
-@app.post("/pipeline_audio")
+@app.post("/pipeline_audio")   # 11.16
 async def run_pipeline_audio(
     title: str = Form(...),
     people: str = Form(""),
     file: UploadFile = File(...)
 ):
     path = _save_upload(file)
-    # ...
+
+    try:
+        tr = transcribe_file(path)
+        if not tr.text.strip():
+            raise HTTPException(
+                status_code=400, detail="음성 인식 결과없음"
+            )
+        result = run_meeting_pipeline(
+                    title=title,
+                    people=people,
+                    notes=tr.text,
+                    audio_path=str(path)
+        )
+        result["transcript"] = tr.text
+        result["asr_mode"] = tr.mode
+        result["audio_rms"] = tr.rms
+        result["audio_peak"] = tr.peak
+
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail="음성 파이프라인 처리 오류"
+        )
+
