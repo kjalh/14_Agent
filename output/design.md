@@ -1,420 +1,642 @@
 # 프로젝트 목적
 
-학생 이름과 점수를 등록하고, 등록된 성적을 조회·분석할 수 있는 함수형 성적 관리 API를 설계한다.
+학생 이름과 점수를 등록하고, 등록된 성적을 조회·분석하는 프로그램을 설계한다.
 
-- Python 표준 라이브러리만 사용
-- `input()`과 `print()`를 사용하지 않음
-- 상태를 직접 변경하지 않고, 새로운 성적부를 반환하는 방식으로 구현
-- 점수 범위는 `0점 이상 100점 이하`
-- 동일한 이름의 학생은 중복 등록하지 않음
-- 최고 점수 동점자는 모두 조회
+프로그램은 `input()`이나 `print()`를 사용하지 않고, 외부에서 값을 전달받아 결과를 반환하는 함수형 API로 제공한다.
+
+- 학생 성적 등록
+- 전체 학생 목록 조회
+- 전체 평균 점수 계산
+- 최고 점수 학생 조회
+- 잘못된 이름·점수·빈 성적부에 대한 예외 처리
+
+정책은 다음과 같이 결정한다.
+
+- 점수 범위: `0점 이상 100점 이하`
+- 동일한 이름의 학생: 중복 등록 불가
+- 학생 이름: 앞뒤 공백 제거 후 빈 문자열이면 등록 불가
+- 점수: 정수와 실수 모두 허용
+- `bool`은 Python에서 숫자로 취급되므로 점수로 허용하지 않음
+
+---
 
 # 필수 기능 목록
 
-1. 학생 성적 등록
-2. 전체 학생 목록 조회
-3. 전체 학생 평균 점수 계산
-4. 최고 점수 학생 조회
-5. 입력값 검증
-6. 학생이 없을 때의 예외 처리
-7. 동일한 학생 이름 중복 등록 방지
+1. **학생 성적 등록**
+   - 학생 이름과 점수를 등록한다.
+   - 이름이 중복되면 등록하지 않는다.
+   - 점수는 `0~100` 범위만 허용한다.
+
+2. **전체 학생 목록 조회**
+   - 등록 순서대로 모든 학생의 이름과 점수를 반환한다.
+   - 등록된 학생이 없으면 예외를 발생시킨다.
+
+3. **평균 점수 계산**
+   - 전체 학생의 평균 점수를 계산한다.
+   - 등록된 학생이 없으면 예외를 발생시킨다.
+
+4. **최고 점수 학생 조회**
+   - 가장 높은 점수의 학생을 반환한다.
+   - 최고 점수 학생이 여러 명이면 등록 순서상 먼저 등록된 학생을 반환한다.
+   - 등록된 학생이 없으면 예외를 발생시킨다.
+
+5. **결과 문자열 변환**
+   - API 결과를 사용자에게 표시할 수 있는 문자열로 변환한다.
+   - 실제 출력은 호출하는 애플리케이션이 담당한다.
+
+---
 
 # 자료구조
 
-## 학생 정보
+## 학생 성적 저장 구조
+
+학생 이름을 키로, 점수를 값으로 저장하는 딕셔너리를 사용한다.
 
 ```python
-StudentRecord(
-    name="홍길동",
-    score=95.0,
-)
+GradeBook = dict[str, float]
 ```
 
-`StudentRecord`는 변경할 수 없는 불변 데이터 구조로 사용한다.
-
-## 성적부
+예시:
 
 ```python
-GradeBook(
-    students=(
-        StudentRecord(name="홍길동", score=95.0),
-        StudentRecord(name="김철수", score=88.0),
-    )
-)
+{
+    "김민수": 85.0,
+    "이서연": 92.0,
+}
 ```
 
-- 학생 목록은 `tuple`로 저장한다.
-- 등록 함수는 기존 객체를 변경하지 않고 새로운 `GradeBook`을 반환한다.
-- 조회 함수는 원본 데이터를 변경하지 않는다.
+Python 딕셔너리는 삽입 순서를 유지하므로 학생 목록 조회와 동점자 처리에 활용할 수 있다.
+
+## 반환 자료구조
+
+학생 한 명의 정보는 다음 튜플로 반환한다.
+
+```python
+StudentScore = tuple[str, float]
+```
+
+예시:
+
+```python
+("이서연", 92.0)
+```
+
+전체 학생 목록은 다음과 같다.
+
+```python
+list[StudentScore]
+```
+
+예시:
+
+```python
+[
+    ("김민수", 85.0),
+    ("이서연", 92.0),
+]
+```
+
+## 예외 자료구조
+
+```python
+class GradeBookError(Exception):
+    """성적 관리 프로그램의 기본 예외."""
+
+
+class EmptyGradeBookError(GradeBookError):
+    """등록된 학생이 없을 때 발생하는 예외."""
+
+
+class DuplicateStudentError(GradeBookError):
+    """동일한 학생 이름이 이미 등록되어 있을 때 발생하는 예외."""
+```
+
+---
 
 # 함수 목록과 함수별 역할
 
-| 함수 | 역할 |
-|---|---|
-| `create_grade_book` | 빈 성적부 생성 |
-| `register_student` | 학생 이름과 점수 등록 |
-| `get_all_students` | 전체 학생 목록 조회 |
-| `calculate_average_score` | 전체 학생 평균 점수 계산 |
-| `get_top_students` | 최고 점수 학생 조회 |
-| `_validate_name` | 학생 이름 검증 |
-| `_validate_score` | 점수 검증 |
-
-## 구현 코드
+## 함수 시그니처 요약
 
 ```python
-from __future__ import annotations
-
-from dataclasses import dataclass
-from numbers import Real
-from typing import Tuple
-
-
-class GradeBookError(Exception):
-    """성적부 관련 예외의 기본 클래스."""
-
-
-class InvalidStudentNameError(GradeBookError, ValueError):
-    """학생 이름이 유효하지 않을 때 발생."""
-
-
-class InvalidScoreError(GradeBookError, ValueError):
-    """점수가 유효하지 않을 때 발생."""
-
-
-class DuplicateStudentError(GradeBookError, ValueError):
-    """동일한 학생 이름이 이미 등록되어 있을 때 발생."""
-
-
-class NoStudentsError(GradeBookError, LookupError):
-    """등록된 학생이 없을 때 발생."""
-
-
-@dataclass(frozen=True)
-class StudentRecord:
-    """학생 이름과 점수를 저장하는 불변 자료구조."""
-
-    name: str
-    score: float
-
-
-@dataclass(frozen=True)
-class GradeBook:
-    """학생 성적 목록을 저장하는 불변 성적부."""
-
-    students: Tuple[StudentRecord, ...] = ()
-
-
 def create_grade_book() -> GradeBook:
-    """
-    빈 성적부를 생성한다.
-
-    Returns:
-        GradeBook: 학생이 등록되지 않은 빈 성적부
-    """
-    return GradeBook()
+    ...
 
 
 def register_student(
     grade_book: GradeBook,
     name: str,
-    score: Real,
+    score: int | float,
 ) -> GradeBook:
-    """
-    학생 이름과 점수를 등록한 새로운 성적부를 반환한다.
-
-    Args:
-        grade_book: 기존 성적부
-        name: 등록할 학생 이름
-        score: 등록할 점수. 0 이상 100 이하의 숫자
-
-    Returns:
-        GradeBook: 학생이 추가된 새로운 성적부
-
-    Raises:
-        InvalidStudentNameError: 이름이 비어 있거나 문자열이 아닌 경우
-        InvalidScoreError: 점수가 숫자가 아니거나 범위를 벗어난 경우
-        DuplicateStudentError: 동일한 이름이 이미 등록된 경우
-    """
-    validated_name = _validate_name(name)
-    validated_score = _validate_score(score)
-
-    if any(student.name == validated_name for student in grade_book.students):
-        raise DuplicateStudentError(
-            f"이미 등록된 학생 이름입니다: {validated_name}"
-        )
-
-    new_student = StudentRecord(
-        name=validated_name,
-        score=validated_score,
-    )
-
-    return GradeBook(
-        students=grade_book.students + (new_student,)
-    )
+    ...
 
 
-def get_all_students(
+def list_students(
     grade_book: GradeBook,
-) -> Tuple[StudentRecord, ...]:
-    """
-    전체 학생 목록을 반환한다.
-
-    Args:
-        grade_book: 조회할 성적부
-
-    Returns:
-        Tuple[StudentRecord, ...]: 등록 순서대로 정렬된 학생 목록
-    """
-    return grade_book.students
+) -> list[StudentScore]:
+    ...
 
 
-def calculate_average_score(
+def calculate_average(
     grade_book: GradeBook,
 ) -> float:
-    """
-    전체 학생의 평균 점수를 계산한다.
-
-    Args:
-        grade_book: 평균을 계산할 성적부
-
-    Returns:
-        float: 전체 학생의 평균 점수
-
-    Raises:
-        NoStudentsError: 등록된 학생이 없는 경우
-    """
-    if not grade_book.students:
-        raise NoStudentsError("등록된 학생이 없습니다.")
-
-    total_score = sum(student.score for student in grade_book.students)
-    return total_score / len(grade_book.students)
+    ...
 
 
-def get_top_students(
+def find_top_student(
     grade_book: GradeBook,
-) -> Tuple[StudentRecord, ...]:
-    """
-    최고 점수 학생을 모두 반환한다.
-
-    최고 점수가 같은 학생이 여러 명이면 모두 반환한다.
-
-    Args:
-        grade_book: 최고 점수 학생을 조회할 성적부
-
-    Returns:
-        Tuple[StudentRecord, ...]: 최고 점수 학생 목록
-
-    Raises:
-        NoStudentsError: 등록된 학생이 없는 경우
-    """
-    if not grade_book.students:
-        raise NoStudentsError("등록된 학생이 없습니다.")
-
-    highest_score = max(
-        student.score for student in grade_book.students
-    )
-
-    return tuple(
-        student
-        for student in grade_book.students
-        if student.score == highest_score
-    )
+) -> StudentScore:
+    ...
 
 
-def _validate_name(name: str) -> str:
-    """
-    학생 이름을 검증하고 양쪽 공백을 제거한 이름을 반환한다.
-
-    Args:
-        name: 검증할 학생 이름
-
-    Returns:
-        str: 정리된 학생 이름
-
-    Raises:
-        InvalidStudentNameError: 이름이 문자열이 아니거나 비어 있는 경우
-    """
-    if not isinstance(name, str):
-        raise InvalidStudentNameError(
-            "학생 이름은 문자열이어야 합니다."
-        )
-
-    normalized_name = name.strip()
-
-    if not normalized_name:
-        raise InvalidStudentNameError(
-            "학생 이름은 비어 있을 수 없습니다."
-        )
-
-    return normalized_name
+def format_student_list(
+    students: list[StudentScore],
+) -> str:
+    ...
 
 
-def _validate_score(score: Real) -> float:
-    """
-    학생 점수를 검증하고 float으로 변환한다.
+def format_average(
+    average: float,
+) -> str:
+    ...
 
-    Args:
-        score: 검증할 점수
 
-    Returns:
-        float: 검증된 점수
-
-    Raises:
-        InvalidScoreError: 숫자가 아니거나 0~100 범위를 벗어난 경우
-    """
-    if isinstance(score, bool) or not isinstance(score, Real):
-        raise InvalidScoreError(
-            "점수는 숫자여야 합니다."
-        )
-
-    numeric_score = float(score)
-
-    if not 0 <= numeric_score <= 100:
-        raise InvalidScoreError(
-            "점수는 0 이상 100 이하이어야 합니다."
-        )
-
-    return numeric_score
+def format_top_student(
+    student: StudentScore,
+) -> str:
+    ...
 ```
+
+## 1. `create_grade_book`
+
+```python
+def create_grade_book() -> GradeBook:
+```
+
+### 역할
+
+새로운 빈 성적부를 생성한다.
+
+### 반환값
+
+```python
+{}
+```
+
+---
+
+## 2. `register_student`
+
+```python
+def register_student(
+    grade_book: GradeBook,
+    name: str,
+    score: int | float,
+) -> GradeBook:
+```
+
+### 역할
+
+학생 이름과 점수를 성적부에 등록한다.
+
+### 동작 규칙
+
+- 이름 앞뒤의 공백을 제거한다.
+- 이름이 문자열이 아니면 예외를 발생시킨다.
+- 이름이 빈 문자열이면 예외를 발생시킨다.
+- 점수가 숫자가 아니면 예외를 발생시킨다.
+- `bool`은 점수로 허용하지 않는다.
+- 점수가 `0~100` 범위를 벗어나면 예외를 발생시킨다.
+- 동일한 이름이 이미 존재하면 `DuplicateStudentError`를 발생시킨다.
+- 기존 딕셔너리를 직접 변경하지 않고 복사본을 반환한다.
+
+---
+
+## 3. `list_students`
+
+```python
+def list_students(
+    grade_book: GradeBook,
+) -> list[StudentScore]:
+```
+
+### 역할
+
+전체 학생 목록을 등록 순서대로 반환한다.
+
+### 반환 예시
+
+```python
+[
+    ("김민수", 85.0),
+    ("이서연", 92.0),
+]
+```
+
+### 예외
+
+성적부가 비어 있으면 `EmptyGradeBookError`를 발생시킨다.
+
+---
+
+## 4. `calculate_average`
+
+```python
+def calculate_average(
+    grade_book: GradeBook,
+) -> float:
+```
+
+### 역할
+
+전체 학생의 평균 점수를 계산한다.
+
+### 반환 예시
+
+```python
+88.5
+```
+
+### 예외
+
+성적부가 비어 있으면 `EmptyGradeBookError`를 발생시킨다.
+
+---
+
+## 5. `find_top_student`
+
+```python
+def find_top_student(
+    grade_book: GradeBook,
+) -> StudentScore:
+```
+
+### 역할
+
+가장 높은 점수를 받은 학생 한 명을 반환한다.
+
+### 반환 예시
+
+```python
+("이서연", 92.0)
+```
+
+### 동점자 처리
+
+최고 점수가 같은 학생이 여러 명이면 딕셔너리의 등록 순서에 따라 먼저 등록된 학생을 반환한다.
+
+### 예외
+
+성적부가 비어 있으면 `EmptyGradeBookError`를 발생시킨다.
+
+---
+
+## 6. `format_student_list`
+
+```python
+def format_student_list(
+    students: list[StudentScore],
+) -> str:
+```
+
+### 역할
+
+학생 목록을 표시용 문자열로 변환한다.
+
+### 반환 예시
+
+```text
+김민수: 85점
+이서연: 92점
+```
+
+---
+
+## 7. `format_average`
+
+```python
+def format_average(
+    average: float,
+) -> str:
+```
+
+### 역할
+
+평균 점수를 표시용 문자열로 변환한다.
+
+### 반환 예시
+
+```text
+평균 점수: 88.5점
+```
+
+---
+
+## 8. `format_top_student`
+
+```python
+def format_top_student(
+    student: StudentScore,
+) -> str:
+```
+
+### 역할
+
+최고 점수 학생 정보를 표시용 문자열로 변환한다.
+
+### 반환 예시
+
+```text
+최고 점수 학생: 이서연, 92점
+```
+
+---
+
+# 프로그램 흐름
+
+## 전체 흐름
+
+1. `create_grade_book()`으로 빈 성적부를 생성한다.
+2. `register_student()`에 이름과 점수를 전달한다.
+3. 반환된 새로운 성적부를 다음 작업에 사용한다.
+4. `list_students()`로 전체 목록을 조회한다.
+5. `calculate_average()`로 평균을 계산한다.
+6. `find_top_student()`로 최고 점수 학생을 조회한다.
+7. 필요할 경우 `format_*()` 함수로 결과를 문자열로 변환한다.
+8. 실제 화면 출력이나 웹 응답은 호출 측에서 처리한다.
 
 ## 사용 예시
 
 ```python
 grade_book = create_grade_book()
 
-grade_book = register_student(grade_book, "홍길동", 95)
-grade_book = register_student(grade_book, "김철수", 88)
-grade_book = register_student(grade_book, "이영희", 95)
+grade_book = register_student(grade_book, "김민수", 85)
+grade_book = register_student(grade_book, "이서연", 92)
 
-students = get_all_students(grade_book)
-average = calculate_average_score(grade_book)
-top_students = get_top_students(grade_book)
+students = list_students(grade_book)
+average = calculate_average(grade_book)
+top_student = find_top_student(grade_book)
 
-print(students)
-# (
-#     StudentRecord(name='홍길동', score=95.0),
-#     StudentRecord(name='김철수', score=88.0),
-#     StudentRecord(name='이영희', score=95.0)
-# )
-
-print(average)
-# 92.66666666666667
-
-print(top_students)
-# (
-#     StudentRecord(name='홍길동', score=95.0),
-#     StudentRecord(name='이영희', score=95.0)
-# )
+print(format_student_list(students))
+print(format_average(average))
+print(format_top_student(top_student))
 ```
 
-`register_student()`는 성적부를 직접 변경하지 않으므로 반드시 반환값을 다시 할당해야 한다.
+실행 결과:
+
+```text
+김민수: 85점
+이서연: 92점
+평균 점수: 88.5점
+최고 점수 학생: 이서연, 92점
+```
+
+## 함수형 API 사용 방식
+
+`register_student()`는 기존 딕셔너리를 직접 수정하지 않고 새로운 딕셔너리를 반환한다.
 
 ```python
-grade_book = register_student(grade_book, "박민수", 77)
+original = create_grade_book()
+updated = register_student(original, "김민수", 85)
+
+assert original == {}
+assert updated == {"김민수": 85.0}
 ```
 
-# 프로그램 흐름
-
-1. `create_grade_book()`으로 빈 성적부를 생성한다.
-2. `register_student()`에 성적부, 학생 이름, 점수를 전달한다.
-3. 이름과 점수를 검증한다.
-4. 동일한 이름의 학생이 있는지 확인한다.
-5. 기존 성적부를 변경하지 않고 새로운 성적부를 반환한다.
-6. `get_all_students()`로 전체 학생 목록을 조회한다.
-7. `calculate_average_score()`로 평균 점수를 계산한다.
-8. `get_top_students()`로 최고 점수 학생을 조회한다.
-9. API 사용자는 필요한 경우 예외를 처리하여 화면 출력이나 다른 로직을 구현한다.
+---
 
 # 예외 처리 요구사항
 
-## 학생 이름이 비어 있는 경우
+## 예외 종류
+
+| 상황 | 예외 |
+|---|---|
+| 이름이 문자열이 아님 | `TypeError` |
+| 이름이 빈 문자열임 | `ValueError` |
+| 점수가 숫자가 아님 | `TypeError` |
+| 점수가 `0~100` 범위를 벗어남 | `ValueError` |
+| 동일한 이름을 중복 등록함 | `DuplicateStudentError` |
+| 등록된 학생이 없음 | `EmptyGradeBookError` |
+| 성적부 자료형이 잘못됨 | `TypeError` |
+
+## 구현 코드
+
+```python
+from __future__ import annotations
+
+from typing import TypeAlias
+
+
+StudentScore: TypeAlias = tuple[str, float]
+GradeBook: TypeAlias = dict[str, float]
+
+
+class GradeBookError(Exception):
+    """성적 관리 프로그램의 기본 예외."""
+
+
+class EmptyGradeBookError(GradeBookError):
+    """등록된 학생이 없을 때 발생하는 예외."""
+
+
+class DuplicateStudentError(GradeBookError):
+    """동일한 학생 이름이 이미 등록되어 있을 때 발생하는 예외."""
+
+
+def create_grade_book() -> GradeBook:
+    """
+    빈 성적부를 생성한다.
+    """
+    return {}
+
+
+def _validate_grade_book(grade_book: GradeBook) -> None:
+    """
+    성적부의 기본 자료형을 검증한다.
+    """
+    if not isinstance(grade_book, dict):
+        raise TypeError("성적부는 dict 자료형이어야 합니다.")
+
+    for name, score in grade_book.items():
+        if not isinstance(name, str):
+            raise TypeError("학생 이름은 문자열이어야 합니다.")
+
+        if not isinstance(score, (int, float)) or isinstance(score, bool):
+            raise TypeError("점수는 숫자여야 합니다.")
+
+
+def _validate_student_name(name: str) -> str:
+    """
+    학생 이름을 검증하고 앞뒤 공백을 제거한 이름을 반환한다.
+    """
+    if not isinstance(name, str):
+        raise TypeError("학생 이름은 문자열이어야 합니다.")
+
+    normalized_name = name.strip()
+
+    if not normalized_name:
+        raise ValueError("학생 이름은 비어 있을 수 없습니다.")
+
+    return normalized_name
+
+
+def _validate_score(score: int | float) -> float:
+    """
+    점수를 검증하고 float으로 변환하여 반환한다.
+    """
+    if not isinstance(score, (int, float)) or isinstance(score, bool):
+        raise TypeError("점수는 숫자여야 합니다.")
+
+    if not 0 <= score <= 100:
+        raise ValueError("점수는 0점 이상 100점 이하이어야 합니다.")
+
+    return float(score)
+
+
+def _ensure_not_empty(grade_book: GradeBook) -> None:
+    """
+    성적부가 비어 있지 않은지 검사한다.
+    """
+    if not grade_book:
+        raise EmptyGradeBookError("등록된 학생이 없습니다.")
+
+
+def register_student(
+    grade_book: GradeBook,
+    name: str,
+    score: int | float,
+) -> GradeBook:
+    """
+    학생 이름과 점수를 등록한 새로운 성적부를 반환한다.
+    """
+    _validate_grade_book(grade_book)
+
+    normalized_name = _validate_student_name(name)
+    normalized_score = _validate_score(score)
+
+    if normalized_name in grade_book:
+        raise DuplicateStudentError(
+            f"'{normalized_name}' 학생은 이미 등록되어 있습니다."
+        )
+
+    updated_grade_book = grade_book.copy()
+    updated_grade_book[normalized_name] = normalized_score
+
+    return updated_grade_book
+
+
+def list_students(
+    grade_book: GradeBook,
+) -> list[StudentScore]:
+    """
+    전체 학생 목록을 등록 순서대로 반환한다.
+    """
+    _validate_grade_book(grade_book)
+    _ensure_not_empty(grade_book)
+
+    return list(grade_book.items())
+
+
+def calculate_average(
+    grade_book: GradeBook,
+) -> float:
+    """
+    전체 학생의 평균 점수를 반환한다.
+    """
+    _validate_grade_book(grade_book)
+    _ensure_not_empty(grade_book)
+
+    return sum(grade_book.values()) / len(grade_book)
+
+
+def find_top_student(
+    grade_book: GradeBook,
+) -> StudentScore:
+    """
+    최고 점수 학생의 이름과 점수를 반환한다.
+
+    최고 점수가 같은 경우 등록 순서상 먼저 등록된 학생을 반환한다.
+    """
+    _validate_grade_book(grade_book)
+    _ensure_not_empty(grade_book)
+
+    return max(grade_book.items(), key=lambda item: item[1])
+
+
+def format_student_list(
+    students: list[StudentScore],
+) -> str:
+    """
+    학생 목록을 표시용 문자열로 변환한다.
+    """
+    if not students:
+        raise EmptyGradeBookError("등록된 학생이 없습니다.")
+
+    return "\n".join(
+        f"{name}: {_format_score(score)}점"
+        for name, score in students
+    )
+
+
+def format_average(
+    average: float,
+) -> str:
+    """
+    평균 점수를 표시용 문자열로 변환한다.
+    """
+    return f"평균 점수: {_format_score(average)}점"
+
+
+def format_top_student(
+    student: StudentScore,
+) -> str:
+    """
+    최고 점수 학생 정보를 표시용 문자열로 변환한다.
+    """
+    name, score = student
+    return f"최고 점수 학생: {name}, {_format_score(score)}점"
+
+
+def _format_score(score: float) -> str:
+    """
+    정수 점수는 소수점 없이, 실수 점수는 필요한 만큼 표시한다.
+    """
+    if score.is_integer():
+        return str(int(score))
+
+    return f"{score:g}"
+```
+
+## 예외 처리 사용 예시
 
 ```python
 try:
-    grade_book = register_student(grade_book, "", 90)
-except InvalidStudentNameError as error:
-    print(error)
+    grade_book = create_grade_book()
+    grade_book = register_student(grade_book, "김민수", 85)
+    grade_book = register_student(grade_book, "김민수", 90)
+except DuplicateStudentError as error:
+    message = str(error)
 ```
 
-발생 예외:
+`message`의 값:
 
 ```text
-InvalidStudentNameError
+'김민수' 학생은 이미 등록되어 있습니다.
 ```
 
-## 학생 이름이 문자열이 아닌 경우
+빈 성적부 조회 예시:
 
 ```python
-register_student(grade_book, 123, 90)
+try:
+    empty_grade_book = create_grade_book()
+    average = calculate_average(empty_grade_book)
+except EmptyGradeBookError as error:
+    message = str(error)
 ```
 
-발생 예외:
+`message`의 값:
 
 ```text
-InvalidStudentNameError
+등록된 학생이 없습니다.
 ```
 
-## 점수가 숫자가 아닌 경우
-
-```python
-register_student(grade_book, "홍길동", "구십점")
-```
-
-발생 예외:
-
-```text
-InvalidScoreError
-```
-
-## 점수가 허용 범위를 벗어난 경우
-
-```python
-register_student(grade_book, "홍길동", 101)
-```
-
-발생 예외:
-
-```text
-InvalidScoreError
-```
-
-## 동일한 이름을 등록하는 경우
-
-```python
-grade_book = register_student(grade_book, "홍길동", 90)
-grade_book = register_student(grade_book, "홍길동", 80)
-```
-
-발생 예외:
-
-```text
-DuplicateStudentError
-```
-
-## 등록된 학생이 없는 경우 평균 계산
-
-```python
-empty_grade_book = create_grade_book()
-calculate_average_score(empty_grade_book)
-```
-
-발생 예외:
-
-```text
-NoStudentsError
-```
-
-## 등록된 학생이 없는 경우 최고 점수 조회
-
-```python
-empty_grade_book = create_grade_book()
-get_top_students(empty_grade_book)
-```
-
-발생 예외:
-
-```text
-NoStudentsError
-```
-
-이 설계는 콘솔 입력이나 화면 출력에 의존하지 않으므로 콘솔, 웹 서버, GUI 등 다양한 외부 인터페이스에서 재사용할 수 있다.
+이 설계는 Python 표준 라이브러리만 사용하며, 입력 대기나 직접적인 콘솔 출력 없이 다른 프로그램, 웹 API, 테스트 코드에서 함수 호출 방식으로 사용할 수 있다.
